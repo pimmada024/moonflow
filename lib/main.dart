@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'page/select_period_page.dart';
 import 'page/main_navigation.dart';
 
 void main() async {
@@ -9,7 +8,7 @@ void main() async {
 
   await Supabase.initialize(
     url: 'https://jodslfwupimvhdqfqzhb.supabase.co',
-    anonKey: 'YOUR_ANON_KEY',
+    anonKey: 'YOUR_ANON_KEY', // ใส่ key จริงของคุณ
   );
 
   runApp(const MyApp());
@@ -22,7 +21,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: SelectPeriodScreen(), // 👈 หน้าแรก
+      home: MainNavigation(), // 👈 เข้าแอปหลักตรงนี้เลย
     );
   }
 }
