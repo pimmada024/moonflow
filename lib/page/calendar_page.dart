@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:table_calendar/table_calendar.dart';
+import '../logic/cycle_calculator.dart';
+import '../services/cycle_service.dart';
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -9,167 +10,237 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
-  DateTime _focusedDay = DateTime.now();
+  final PageController _pageController =
+      PageController(initialPage: DateTime.now().month - 1);
+
+  final CycleService _cycleService = CycleService();
 
   DateTime? periodStart;
   DateTime? periodEnd;
-  bool isPeriodActive = true;
-
+  bool isPeriodActive = false;
   int cycleLength = 28;
+
+  bool _isFirstLoad = true;
 
   @override
   void initState() {
     super.initState();
-    periodStart = DateTime.now().subtract(const Duration(days: 2));
+    _loadCycleData();
   }
 
-  bool isPastPeriod(DateTime day) {
-    if (periodStart == null) return false;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
 
-    if (isPeriodActive) {
-      return day.isAfter(periodStart!.subtract(const Duration(days: 1))) &&
-          day.isBefore(DateTime.now().add(const Duration(days: 1)));
-    } else {
-      return day.isAfter(periodStart!.subtract(const Duration(days: 1))) &&
-          day.isBefore(periodEnd!.add(const Duration(days: 1)));
+    if (!_isFirstLoad) {
+      _loadCycleData();
+    }
+
+    _isFirstLoad = false;
+  }
+
+  Future<void> _loadCycleData() async {
+    final start = await _cycleService.getPeriodStart();
+    final end = await _cycleService.getPeriodEnd();
+    final status = await _cycleService.getPeriodStatus();
+
+    setState(() {
+      periodStart = start;
+      periodEnd = end;
+      isPeriodActive = status;
+    });
+
+    await _checkAutoStop(); // ⭐ ตรวจครบ 7 วัน
+  }
+
+  // ⭐ ตรวจว่าครบ 7 วันหรือยัง
+  Future<void> _checkAutoStop() async {
+    if (!isPeriodActive || periodStart == null) return;
+
+    final difference =
+        DateTime.now().difference(periodStart!).inDays;
+
+    if (difference >= 7) {
+      _showAutoStopDialog();
     }
   }
 
-  bool isPredictedNextPeriod(DateTime day) {
-    if (periodStart == null) return false;
-    final next = periodStart!.add(Duration(days: cycleLength));
-    return day.year == next.year &&
-        day.month == next.month &&
-        day.day == next.day;
+  // ⭐ Dialog ถามผู้ใช้
+  void _showAutoStopDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text("Still on your period?"),
+          content: const Text(
+              "It has been 7 days. Are you still on your period?"),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await _cycleService.endPeriod();
+                if (mounted) {
+                  Navigator.pop(dialogContext);
+                  await _loadCycleData();
+                }
+              },
+              child: const Text("No, it ended"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text("Yes, still ongoing"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final calculator = CycleCalculator(
+      periodStart: periodStart,
+      periodEnd: periodEnd,
+      isPeriodActive: isPeriodActive,
+      cycleLength: cycleLength,
+    );
+
     return Scaffold(
-      backgroundColor: const Color(0xFFFDE7EC),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            _header("JANUARY"),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                icon: const Icon(Icons.close, color: Colors.pink),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
+      ),
+      body: PageView.builder(
+        scrollDirection: Axis.vertical,
+        controller: _pageController,
+        itemCount: 12,
+        itemBuilder: (context, index) {
+          final month = index + 1;
+          final year = DateTime.now().year;
+          return _buildMonth(year, month, calculator);
+        },
+      ),
+    );
+  }
 
-            Expanded(
-              child: TableCalendar(
-                firstDay: DateTime(2000),
-                lastDay: DateTime(2100),
-                focusedDay: _focusedDay,
-                headerVisible: false,
-                calendarBuilders: CalendarBuilders(
-                  defaultBuilder: (context, day, _) {
-                    if (isPastPeriod(day)) {
-                      return _pinkFilled(day);
-                    }
+  Widget _buildMonth(
+      int year, int month, CycleCalculator calculator) {
+    final daysInMonth = DateUtils.getDaysInMonth(year, month);
+    final monthName = "${_monthNames[month - 1]} $year";
 
-                    if (isPredictedNextPeriod(day)) {
-                      return _greenFilled(day);
-                    }
-
-                    if (isSameDay(day, DateTime.now())) {
-                      return _pinkBorder(day);
-                    }
-
-                    return null;
-                  },
-                ),
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          color: const Color(0xFFE8A5AD),
+          child: Center(
+            child: Text(
+              monthName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
             ),
-
-            const SizedBox(height: 10),
-
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF06C8C),
-              ),
-              onPressed: () {
-                setState(() {
-                  isPeriodActive = false;
-                  periodEnd = DateTime.now();
-                });
-              },
-              child: const Text("Stop Period"),
-            ),
-
-            const SizedBox(height: 15),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _pinkFilled(DateTime day) {
-    return Center(
-      child: Container(
-        width: 38,
-        height: 38,
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(
-          color: Color(0xFFF48DA5),
-          shape: BoxShape.circle,
-        ),
-        child: Text(
-          "${day.day}",
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
-    );
-  }
-
-  Widget _pinkBorder(DateTime day) {
-    return Center(
-      child: Container(
-        width: 38,
-        height: 38,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFF48DA5), width: 2),
-        ),
-        child: Text(
-          "${day.day}",
-          style: const TextStyle(color: Colors.black),
-        ),
-      ),
-    );
-  }
-
-  Widget _greenFilled(DateTime day) {
-    return Center(
-      child: Container(
-        width: 38,
-        height: 38,
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(
-          color: Color(0xFF44BAB1),
-          shape: BoxShape.circle,
-        ),
-        child: Text(
-          "${day.day}",
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
-    );
-  }
-
-  Widget _header(String month) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      color: const Color(0xFFE8A5AD),
-      child: Center(
-        child: Text(
-          month,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
           ),
         ),
-      ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(16),
+            gridDelegate:
+                const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              childAspectRatio: 1,
+            ),
+            itemCount: daysInMonth,
+            itemBuilder: (context, index) {
+              final day =
+                  DateTime(year, month, index + 1);
+              return _buildDay(day, calculator);
+            },
+          ),
+        )
+      ],
     );
   }
+
+  Widget _buildDay(
+      DateTime day, CycleCalculator calculator) {
+    final isToday =
+        DateUtils.isSameDay(day, DateTime.now());
+    final isPeriod =
+        calculator.isPastPeriod(day);
+    final isPredicted =
+        calculator.isPredictedNextPeriod(day);
+
+    Color? bgColor;
+    Color textColor = Colors.black;
+    Border? border;
+
+    if (isPeriod) {
+      bgColor = const Color(0xFFF48DA5);
+      textColor = Colors.white;
+    } else if (isPredicted) {
+      bgColor = const Color(0xFF44BAB1);
+      textColor = Colors.white;
+    } else if (isToday) {
+      border = Border.all(
+        color: const Color(0xFFF48DA5),
+        width: 2,
+      );
+    }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (isToday)
+          const Text(
+            "Today",
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey,
+            ),
+          ),
+        Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: bgColor,
+            shape: BoxShape.circle,
+            border: border,
+          ),
+          child: Text(
+            "${day.day}",
+            style: TextStyle(color: textColor),
+          ),
+        ),
+      ],
+    );
+  }
+
+  final List<String> _monthNames = const [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
+  ];
 }

@@ -4,63 +4,56 @@ import 'calendar_page.dart';
 import 'settings_page.dart';
 
 class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
+  final int initialIndex;
+
+  const MainNavigation({super.key, this.initialIndex = 0});
 
   @override
   State<MainNavigation> createState() => _MainNavigationState();
 }
 
 class _MainNavigationState extends State<MainNavigation> {
-  int _selectedIndex = 0;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+  }
 
   final List<Widget> _pages = const [
     HomePage(),
     CalendarPage(),
-    SettingsPage(),
+    SettingsPage(), // 👈 เอา Settings กลับมา
   ];
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: Container(
-        height: 75,
-        decoration: const BoxDecoration(
-          color: Color(0xFFF7F7F7),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.home),
-              onPressed: () => _onItemTapped(0),
-              color: _selectedIndex == 0 
-                  ? const Color(0xFFF06C8C) 
-                  : Colors.grey,
-            ),
-            IconButton(
-              icon: const Icon(Icons.calendar_month),
-              onPressed: () => _onItemTapped(1),
-              color: _selectedIndex == 1 
-                  ? const Color(0xFFF06C8C) 
-                  : Colors.grey,
-            ),
-            IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: () => _onItemTapped(2),
-              color: _selectedIndex == 2 
-                  ? const Color(0xFFF06C8C) 
-                  : Colors.grey,
-            ),
-          ],
-        ),
+      body: _pages[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        selectedItemColor: const Color(0xFFF06C8C),
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: "Home",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_month),
+            label: "Calendar",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: "Settings",
+          ),
+        ],
       ),
     );
   }
