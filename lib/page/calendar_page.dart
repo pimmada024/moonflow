@@ -20,6 +20,9 @@ class _CalendarPageState extends State<CalendarPage> {
   bool isPeriodActive = false;
   int cycleLength = 28;
 
+  // ⭐ เพิ่มตัวนี้
+  int periodLength = 7;
+
   bool _isFirstLoad = true;
 
   @override
@@ -43,29 +46,30 @@ class _CalendarPageState extends State<CalendarPage> {
     final start = await _cycleService.getPeriodStart();
     final end = await _cycleService.getPeriodEnd();
     final status = await _cycleService.getPeriodStatus();
+    final length = await _cycleService.getPeriodLength();
 
     setState(() {
       periodStart = start;
       periodEnd = end;
       isPeriodActive = status;
+      periodLength = length; // ⭐ โหลดค่าจริง
     });
 
-    await _checkAutoStop(); // ⭐ ตรวจครบ 7 วัน
+    await _checkAutoStop();
   }
 
-  // ⭐ ตรวจว่าครบ 7 วันหรือยัง
   Future<void> _checkAutoStop() async {
     if (!isPeriodActive || periodStart == null) return;
 
     final difference =
         DateTime.now().difference(periodStart!).inDays;
 
-    if (difference >= 7) {
+    // ⭐ ใช้ periodLength แทน fix 7
+    if (difference >= periodLength) {
       _showAutoStopDialog();
     }
   }
 
-  // ⭐ Dialog ถามผู้ใช้
   void _showAutoStopDialog() {
     showDialog(
       context: context,
@@ -73,8 +77,8 @@ class _CalendarPageState extends State<CalendarPage> {
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text("Still on your period?"),
-          content: const Text(
-              "It has been 7 days. Are you still on your period?"),
+          content: Text(
+              "It has been $periodLength days. Are you still on your period?"),
           actions: [
             TextButton(
               onPressed: () async {
@@ -88,7 +92,7 @@ class _CalendarPageState extends State<CalendarPage> {
             ),
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
               },
               child: const Text("Yes, still ongoing"),
             ),
@@ -105,6 +109,7 @@ class _CalendarPageState extends State<CalendarPage> {
       periodEnd: periodEnd,
       isPeriodActive: isPeriodActive,
       cycleLength: cycleLength,
+      periodLength: periodLength, // ⭐ ส่งเข้า calculator
     );
 
     return Scaffold(
@@ -137,40 +142,43 @@ class _CalendarPageState extends State<CalendarPage> {
     final daysInMonth = DateUtils.getDaysInMonth(year, month);
     final monthName = "${_monthNames[month - 1]} $year";
 
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          color: const Color(0xFFE8A5AD),
-          child: Center(
-            child: Text(
-              monthName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
+    return SizedBox(
+      height: MediaQuery.of(context).size.height,
+      child: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            color: const Color(0xFFFDC3D6),
+            child: Center(
+              child: Text(
+                monthName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
               ),
             ),
           ),
-        ),
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              childAspectRatio: 1,
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(16),
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                childAspectRatio: 1,
+              ),
+              itemCount: daysInMonth,
+              itemBuilder: (context, index) {
+                final day =
+                    DateTime(year, month, index + 1);
+                return _buildDay(day, calculator);
+              },
             ),
-            itemCount: daysInMonth,
-            itemBuilder: (context, index) {
-              final day =
-                  DateTime(year, month, index + 1);
-              return _buildDay(day, calculator);
-            },
-          ),
-        )
-      ],
+          )
+        ],
+      ),
     );
   }
 
@@ -195,7 +203,7 @@ class _CalendarPageState extends State<CalendarPage> {
       textColor = Colors.white;
     } else if (isToday) {
       border = Border.all(
-        color: const Color(0xFFF48DA5),
+        color: const Color(0xFFA57ACD),
         width: 2,
       );
     }

@@ -7,11 +7,17 @@ class HomeCycleController {
   DateTime? periodStart;
   final int cycleLength = 28;
 
+  // ===============================
+  // LOAD DATA
+  // ===============================
   Future<void> loadData() async {
     isPeriod = await _cycleService.getPeriodStatus();
     periodStart = await _cycleService.getPeriodStart();
   }
 
+  // ===============================
+  // TOGGLE PERIOD STATUS
+  // ===============================
   Future<void> togglePeriod(bool value) async {
     isPeriod = value;
 
@@ -24,12 +30,19 @@ class HomeCycleController {
     await loadData();
   }
 
+  // ===============================
+  // PERIOD DAY (Day 1–5)
+  // ===============================
   int calculatePeriodDay() {
     if (periodStart == null) return 1;
+
     final today = DateTime.now();
     return today.difference(periodStart!).inDays + 1;
   }
 
+  // ===============================
+  // CURRENT CYCLE DAY (1–28)
+  // ===============================
   int calculateCycleDay() {
     if (periodStart == null) return 1;
 
@@ -40,6 +53,9 @@ class HomeCycleController {
     return (daysSinceStart % cycleLength) + 1;
   }
 
+  // ===============================
+  // DAYS UNTIL NEXT PERIOD
+  // ===============================
   int calculateDaysUntilNextPeriod() {
     if (periodStart == null) return cycleLength;
 
@@ -47,18 +63,29 @@ class HomeCycleController {
     final daysSinceStart =
         today.difference(periodStart!).inDays;
 
-    return cycleLength - (daysSinceStart % cycleLength);
+    final remaining =
+        cycleLength - (daysSinceStart % cycleLength);
+
+    return remaining == cycleLength ? 0 : remaining;
   }
 
-  // ⭐ ใหม่: ใช้โชว์ Ovulation in X days
+  // ===============================
+  // DAYS UNTIL OVULATION (แก้ให้ถูกต้องแล้ว)
+  // ===============================
   int daysUntilOvulation() {
     final cycleDay = calculateCycleDay();
     const ovulationDay = 14;
 
-    final diff = ovulationDay - cycleDay;
-    return diff > 0 ? diff : 0;
+    if (cycleDay <= ovulationDay) {
+      return ovulationDay - cycleDay;
+    } else {
+      return (cycleLength - cycleDay) + ovulationDay;
+    }
   }
 
+  // ===============================
+  // PHASE
+  // ===============================
   String getPhase() {
     final day = calculateCycleDay();
 
@@ -73,7 +100,9 @@ class HomeCycleController {
     }
   }
 
-  // ⭐ ใหม่: ใช้แสดง Hormone label
+  // ===============================
+  // HORMONE LABEL
+  // ===============================
   String getHormoneStatus() {
     final phase = getPhase();
 
@@ -91,6 +120,9 @@ class HomeCycleController {
     }
   }
 
+  // ===============================
+  // TODAY'S INSIGHT
+  // ===============================
   String getInsight() {
     final phase = getPhase();
 
