@@ -4,16 +4,28 @@ import '../models/home_cycle_info.dart';
 /// Service responsible for storing and reading cycle/period data.
 class CycleService {
   static const int defaultCycleLength = 28;
+  static const String _kPeriodEnd = 'periodEnd';
+  static const String _kIsPeriodActive = 'isPeriodActive';
+  static const String _kPeriodLength = 'periodLength';
+  static const String _kAutoStopHandled = 'periodAutoStopHandled';
+  static const String _kCycleLength = 'cycleLength';
 
   // ===============================
   // START PERIOD
   // ===============================
+  /// Start period. If [startDate] is provided it represents the selected
+  /// periodEnd (the LAST day). When called without a date (toggle from UI),
+  /// we mark period active and store periodEnd as today.
   Future<void> startPeriod({DateTime? startDate}) async {
     final prefs = await SharedPreferences.getInstance();
     final date = startDate ?? DateTime.now();
 
-    await prefs.setInt('periodStart', date.millisecondsSinceEpoch);
-    await prefs.setBool('isPeriodActive', true);
+    // Store periodEnd (the model's canonical saved date)
+    await prefs.setInt(_kPeriodEnd, date.millisecondsSinceEpoch);
+    await prefs.setBool(_kIsPeriodActive, true);
+
+    // Reset auto-stop handled so user may be asked again for new period
+    await prefs.setBool(_kAutoStopHandled, false);
   }
 
   // ===============================
@@ -23,16 +35,9 @@ class CycleService {
     final prefs = await SharedPreferences.getInstance();
     final date = endDate ?? DateTime.now();
 
-    await prefs.setInt('periodEnd', date.millisecondsSinceEpoch);
-    await prefs.setBool('isPeriodActive', false);
-
-    // Calculate and persist actual period length when possible
-    final startMillis = prefs.getInt('periodStart');
-    if (startMillis != null) {
-      final start = DateTime.fromMillisecondsSinceEpoch(startMillis);
-      final length = date.difference(start).inDays + 1;
-      await prefs.setInt('periodLength', length);
-    }
+    // Save periodEnd and mark period as not active. Keep periodLength unchanged.
+    await prefs.setInt(_kPeriodEnd, date.millisecondsSinceEpoch);
+    await prefs.setBool(_kIsPeriodActive, false);
   }
 
   // ===============================
@@ -40,19 +45,24 @@ class CycleService {
   // ===============================
   Future<bool> getPeriodStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('isPeriodActive') ?? false;
+    return prefs.getBool(_kIsPeriodActive) ?? false;
   }
 
   Future<DateTime?> getPeriodStart() async {
     final prefs = await SharedPreferences.getInstance();
-    final millis = prefs.getInt('periodStart');
-    if (millis == null) return null;
-    return DateTime.fromMillisecondsSinceEpoch(millis);
+    // Compute periodStart from stored periodEnd and periodLength
+    final endMillis = prefs.getInt(_kPeriodEnd);
+    if (endMillis == null) return null;
+
+    final periodLength = prefs.getInt(_kPeriodLength) ?? 7;
+    final end = DateTime.fromMillisecondsSinceEpoch(endMillis);
+    final start = end.subtract(Duration(days: periodLength - 1));
+    return start;
   }
 
   Future<DateTime?> getPeriodEnd() async {
     final prefs = await SharedPreferences.getInstance();
-    final millis = prefs.getInt('periodEnd');
+    final millis = prefs.getInt(_kPeriodEnd);
     if (millis == null) return null;
     return DateTime.fromMillisecondsSinceEpoch(millis);
   }
@@ -61,7 +71,17 @@ class CycleService {
   /// Uses SharedPreferences key 'periodLength'. Defaults to 7 when not set.
   Future<int> getPeriodLength() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('periodLength') ?? 7;
+    return prefs.getInt(_kPeriodLength) ?? 7;
+  }
+
+  Future<bool> getAutoStopHandled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kAutoStopHandled) ?? false;
+  }
+
+  Future<void> setAutoStopHandled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kAutoStopHandled, value);
   }
 
   // ===============================
@@ -69,9 +89,8 @@ class CycleService {
   // ===============================
   Future<HomeCycleInfo> getHomeCycleInfo() async {
     final prefs = await SharedPreferences.getInstance();
-
-    final isPeriod = prefs.getBool('isPeriodActive') ?? false;
-    final endMillis = prefs.getInt('periodEnd');
+    final isPeriod = prefs.getBool(_kIsPeriodActive) ?? false;
+    final endMillis = prefs.getInt(_kPeriodEnd);
 
     if (endMillis == null) {
       return HomeCycleInfo(isPeriod: false);
@@ -79,17 +98,26 @@ class CycleService {
 
     final endDate = DateTime.fromMillisecondsSinceEpoch(endMillis);
 
+    // Use stored cycle length if available, otherwise fallback to default
+    final cycleLen = prefs.getInt(_kCycleLength) ?? defaultCycleLength;
+    final periodLen = prefs.getInt(_kPeriodLength) ?? 7;
+
     if (isPeriod) {
-      final startMillis = prefs.getInt('periodStart');
-      if (startMillis == null) return HomeCycleInfo(isPeriod: true);
-
-      final startDate = DateTime.fromMillisecondsSinceEpoch(startMillis);
+      // compute period start from stored periodEnd and periodLength
+      final startDate = endDate.subtract(Duration(days: periodLen - 1));
       final currentDay = DateTime.now().difference(startDate).inDays + 1;
-
       return HomeCycleInfo(isPeriod: true, currentDay: currentDay);
     } else {
-      final nextPeriod = endDate.add(const Duration(days: defaultCycleLength));
-      int daysLeft = nextPeriod.difference(DateTime.now()).inDays;
+      DateTime nextPeriod = endDate.add(Duration(days: cycleLen));
+      final today = DateTime.now();
+      final todayOnly = DateTime(today.year, today.month, today.day);
+
+      // If nextPeriod is before today, keep adding cycleLen until it's in the future
+      while (nextPeriod.isBefore(todayOnly)) {
+        nextPeriod = nextPeriod.add(Duration(days: cycleLen));
+      }
+
+      int daysLeft = nextPeriod.difference(todayOnly).inDays;
       if (daysLeft < 0) daysLeft = 0;
 
       return HomeCycleInfo(isPeriod: false, daysUntilNext: daysLeft);

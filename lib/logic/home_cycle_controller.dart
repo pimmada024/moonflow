@@ -4,15 +4,22 @@ class HomeCycleController {
   final CycleService _cycleService = CycleService();
 
   bool isPeriod = false;
-  DateTime? periodStart;
+  DateTime? periodEnd; // เก็บวันสุดท้าย
+  DateTime? periodStart; // คำนวณย้อนหลัง
   final int cycleLength = 28;
+  int periodLength = 7;
 
   // ===============================
   // LOAD DATA
   // ===============================
   Future<void> loadData() async {
     isPeriod = await _cycleService.getPeriodStatus();
-    periodStart = await _cycleService.getPeriodStart();
+    periodEnd = await _cycleService.getPeriodEnd();
+    periodLength = await _cycleService.getPeriodLength();
+
+    if (periodEnd != null) {
+      periodStart = periodEnd!.subtract(Duration(days: periodLength - 1));
+    }
   }
 
   // ===============================
@@ -31,7 +38,7 @@ class HomeCycleController {
   }
 
   // ===============================
-  // PERIOD DAY (Day 1–5)
+  // PERIOD DAY (1–7)
   // ===============================
   int calculatePeriodDay() {
     if (periodStart == null) return 1;
@@ -44,33 +51,32 @@ class HomeCycleController {
   // CURRENT CYCLE DAY (1–28)
   // ===============================
   int calculateCycleDay() {
-    if (periodStart == null) return 1;
+    if (periodEnd == null) return 1;
 
     final today = DateTime.now();
-    final daysSinceStart =
-        today.difference(periodStart!).inDays;
+    final daysSinceEnd = today.difference(periodEnd!).inDays;
 
-    return (daysSinceStart % cycleLength) + 1;
+    return (daysSinceEnd % cycleLength) + 1;
   }
 
   // ===============================
   // DAYS UNTIL NEXT PERIOD
   // ===============================
   int calculateDaysUntilNextPeriod() {
-    if (periodStart == null) return cycleLength;
+    if (periodEnd == null) return cycleLength;
 
     final today = DateTime.now();
-    final daysSinceStart =
-        today.difference(periodStart!).inDays;
-
-    final remaining =
-        cycleLength - (daysSinceStart % cycleLength);
-
-    return remaining == cycleLength ? 0 : remaining;
+    final nextPeriodDate = periodEnd!.add(Duration(days: cycleLength));
+    final daysRemaining = nextPeriodDate.difference(DateTime(
+      today.year,
+      today.month,
+      today.day,
+    )).inDays;
+    return daysRemaining < 0 ? 0 : daysRemaining;
   }
 
   // ===============================
-  // DAYS UNTIL OVULATION (แก้ให้ถูกต้องแล้ว)
+  // DAYS UNTIL OVULATION
   // ===============================
   int daysUntilOvulation() {
     final cycleDay = calculateCycleDay();
@@ -89,9 +95,9 @@ class HomeCycleController {
   String getPhase() {
     final day = calculateCycleDay();
 
-    if (day >= 1 && day <= 5) {
+    if (day >= 1 && day <= 7) {
       return "Menstrual";
-    } else if (day >= 6 && day <= 13) {
+    } else if (day >= 8 && day <= 13) {
       return "Follicular";
     } else if (day == 14) {
       return "Ovulation";

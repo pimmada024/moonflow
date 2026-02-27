@@ -15,13 +15,16 @@ class _CalendarPageState extends State<CalendarPage> {
 
   final CycleService _cycleService = CycleService();
 
-  DateTime? periodStart;
   DateTime? periodEnd;
   bool isPeriodActive = false;
   int cycleLength = 28;
 
   // ⭐ เพิ่มตัวนี้
   int periodLength = 7;
+
+  // Edit mode and selection
+  bool _editMode = false;
+  DateTime? _selectedDay;
 
   bool _isFirstLoad = true;
 
@@ -43,13 +46,11 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> _loadCycleData() async {
-    final start = await _cycleService.getPeriodStart();
     final end = await _cycleService.getPeriodEnd();
     final status = await _cycleService.getPeriodStatus();
     final length = await _cycleService.getPeriodLength();
 
     setState(() {
-      periodStart = start;
       periodEnd = end;
       isPeriodActive = status;
       periodLength = length; // ⭐ โหลดค่าจริง
@@ -59,10 +60,13 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> _checkAutoStop() async {
-    if (!isPeriodActive || periodStart == null) return;
+    if (!isPeriodActive || periodEnd == null) return;
 
-    final difference =
-        DateTime.now().difference(periodStart!).inDays;
+    final handled = await _cycleService.getAutoStopHandled();
+    if (handled) return;
+
+    final start = periodEnd!.subtract(Duration(days: periodLength - 1));
+    final difference = DateTime.now().difference(start).inDays;
 
     // ⭐ ใช้ periodLength แทน fix 7
     if (difference >= periodLength) {
@@ -82,7 +86,9 @@ class _CalendarPageState extends State<CalendarPage> {
           actions: [
             TextButton(
               onPressed: () async {
-                await _cycleService.endPeriod();
+                // User confirms it ended. Keep stored periodEnd as-is
+                await _cycleService.endPeriod(endDate: periodEnd);
+                await _cycleService.setAutoStopHandled(true);
                 if (mounted) {
                   Navigator.pop(dialogContext);
                   await _loadCycleData();
@@ -92,7 +98,15 @@ class _CalendarPageState extends State<CalendarPage> {
             ),
             TextButton(
               onPressed: () {
-                Navigator.pop(dialogContext);
+                // Still ongoing: extend periodEnd to today
+                () async {
+                  await _cycleService.startPeriod(startDate: DateTime.now());
+                  await _cycleService.setAutoStopHandled(true);
+                  if (mounted) {
+                    Navigator.pop(dialogContext);
+                    await _loadCycleData();
+                  }
+                }();
               },
               child: const Text("Yes, still ongoing"),
             ),
@@ -105,7 +119,6 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   Widget build(BuildContext context) {
     final calculator = CycleCalculator(
-      periodStart: periodStart,
       periodEnd: periodEnd,
       isPeriodActive: isPeriodActive,
       cycleLength: cycleLength,
@@ -123,6 +136,43 @@ class _CalendarPageState extends State<CalendarPage> {
                 onPressed: () => Navigator.pop(context),
               )
             : null,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton(
+              onPressed: () async {
+                if (!_editMode) {
+                  setState(() {
+                    _editMode = true;
+                  });
+                } else {
+                  if (_selectedDay != null) {
+                    await _cycleService.startPeriod(startDate: _selectedDay);
+                    await _loadCycleData();
+                  }
+                  setState(() {
+                    _editMode = false;
+                    _selectedDay = null;
+                  });
+                }
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: !_editMode
+                    ? const Color(0xFF8A008A)
+                    : Colors.white,
+                side: _editMode
+                    ? const BorderSide(color: Color(0xFF8A008A))
+                    : null,
+              ),
+              child: Text(
+                !_editMode ? 'Edit' : 'Save',
+                style: TextStyle(
+                  color: !_editMode ? Colors.white : const Color(0xFF8A008A),
+                ),
+              ),
+            ),
+          )
+        ],
       ),
       body: PageView.builder(
         scrollDirection: Axis.vertical,
@@ -171,9 +221,17 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
               itemCount: daysInMonth,
               itemBuilder: (context, index) {
-                final day =
-                    DateTime(year, month, index + 1);
-                return _buildDay(day, calculator);
+                final day = DateTime(year, month, index + 1);
+                return GestureDetector(
+                  onTap: () {
+                    if (_editMode) {
+                      setState(() {
+                        _selectedDay = day;
+                      });
+                    }
+                  },
+                  child: _buildDay(day, calculator),
+                );
               },
             ),
           )
@@ -191,6 +249,8 @@ class _CalendarPageState extends State<CalendarPage> {
     final isPredicted =
         calculator.isPredictedNextPeriod(day);
 
+    final isSelected = _selectedDay != null && DateUtils.isSameDay(day, _selectedDay!);
+
     Color? bgColor;
     Color textColor = Colors.black;
     Border? border;
@@ -201,6 +261,11 @@ class _CalendarPageState extends State<CalendarPage> {
     } else if (isPredicted) {
       bgColor = const Color(0xFF44BAB1);
       textColor = Colors.white;
+    } else if (isSelected) {
+      border = Border.all(
+        color: const Color(0xFF8A008A),
+        width: 2,
+      );
     } else if (isToday) {
       border = Border.all(
         color: const Color(0xFFA57ACD),

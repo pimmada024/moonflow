@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../logic/home_cycle_controller.dart';
+import 'calendar_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -34,13 +35,10 @@ class _HomePageState extends State<HomePage> {
     final month = _monthNames[now.month - 1];
     final actualDay = now.day;
 
-    final ovulationDays =
-        _controller.daysUntilOvulation();
+    final daysRemaining = _controller.calculateDaysUntilNextPeriod();
     final phase = _controller.getPhase();
-    final hormone =
-        _controller.getHormoneStatus();
-    final insight =
-        _controller.getInsight();
+    final hormone = _controller.getHormoneStatus();
+    final insight = _controller.getInsight();
 
     return Container(
       decoration: const BoxDecoration(
@@ -105,91 +103,63 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 30),
 
-                      // Ovulation Text
+                      // Countdown to next period
                       Text(
-                        "Ovulation period in",
+                        "Next period in",
                         style: TextStyle(
                           fontSize: 18,
-                          color:
-                              Colors.grey.shade700,
+                          color: Colors.grey.shade700,
                         ),
                       ),
 
                       const SizedBox(height: 10),
 
                       Text(
-                        "$ovulationDays days",
+                        "$daysRemaining days",
                         style: const TextStyle(
                           fontSize: 40,
-                          fontWeight:
-                              FontWeight.bold,
-                          color:
-                              Color(0xFFB046C5),
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFB046C5),
                         ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment
-                                .center,
-                        children: [
-                          const Text(
-                            "High chance of getting pregnant",
-                            style: TextStyle(
-                              fontSize: 13,
-                              color:
-                                  Colors.black54,
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Icon(Icons.info_outline,
-                              size: 16,
-                              color: Colors
-                                  .grey.shade400),
-                        ],
                       ),
 
                       const SizedBox(height: 25),
 
                       // Pink Button
-                      Container(
-                        width: double.infinity,
-                        height: 50,
-                        decoration:
-                            BoxDecoration(
-                          borderRadius:
-                              BorderRadius
-                                  .circular(30),
-                          gradient:
-                              const LinearGradient(
-                            colors: [
-                              Color(0xFFFF5C8A),
-                              Color(0xFFFF7A9E),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const CalendarPage()),
+                          );
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(30),
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFFFF5C8A),
+                                Color(0xFFFF7A9E),
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.pink.withOpacity(0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              )
                             ],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors
-                                  .pink
-                                  .withOpacity(0.3),
-                              blurRadius: 10,
-                              offset:
-                                  const Offset(
-                                      0, 4),
-                            )
-                          ],
-                        ),
-                        alignment:
-                            Alignment.center,
-                        child: const Text(
-                          "Record the menstrual cycle",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight:
-                                FontWeight
-                                    .bold,
+                          alignment: Alignment.center,
+                          child: const Text(
+                            "Record the menstrual cycle",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
