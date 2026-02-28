@@ -103,21 +103,10 @@ class _SelectPeriodScreenState extends State<SelectPeriodScreen> {
                               const EdgeInsets.symmetric(horizontal: 40),
                           child: GestureDetector(
                             onTap: () async {
-                              // Do not allow calculations without periodEnd.
-                              // Inform the user to toggle when period arrives next time.
-                              showDialog(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  content: const Text(
-                                      'กรุณากดสวิตซ์เมื่อประจำเดือนคุณมาในครั้งต่อไป'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx),
-                                      child: const Text('OK'),
-                                    )
-                                  ],
-                                ),
-                              );
+                              // User cannot remember: do not initialize periodStart.
+                              // Keep switch inactive and go back to Home.
+                              if (!mounted) return;
+                              Navigator.pushReplacementNamed(context, '/home');
                             },
                             child: Container(
                               width: double.infinity,

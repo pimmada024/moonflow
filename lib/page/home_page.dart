@@ -235,103 +235,74 @@ class _HomePageState extends State<HomePage> {
 
                       // ===== INSIGHT CARD =====
                       Container(
-                        padding:
-                            const EdgeInsets
-                                .all(18),
-                        decoration:
-                            BoxDecoration(
-                          color: const Color(
-                              0xFFF3E5F5),
-                          borderRadius:
-                              BorderRadius
-                                  .circular(20),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3E5F5),
+                          borderRadius: BorderRadius.circular(20),
                         ),
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                const Icon(
-                                  Icons.wb_sunny,
-                                  color: Colors
-                                      .orange,
-                                ),
-                                const SizedBox(
-                                    width: 8),
-                                const Text(
-                                  "Today's Insight",
-                                  style:
-                                      TextStyle(
-                                    fontWeight:
-                                        FontWeight
-                                            .bold,
+                                const Padding(
+                                  padding: EdgeInsets.only(right: 8.0),
+                                  child: Icon(
+                                    Icons.wb_sunny,
+                                    color: Colors.orange,
                                   ),
                                 ),
-                                const Spacer(),
-                                Text(
-                                  hormone,
-                                  style:
-                                      const TextStyle(
-                                    fontSize:
-                                        11,
-                                    color: Colors
-                                        .red,
+                                const Expanded(
+                                  child: Text(
+                                    "Today's Insight",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                )
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8.0),
+                                  child: Text(
+                                    hormone,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
 
-                            const SizedBox(
-                                height: 15),
+                            const SizedBox(height: 12),
 
                             Container(
-                              padding:
-                                  const EdgeInsets
-                                      .all(14),
-                              decoration:
-                                  BoxDecoration(
-                                color: Colors
-                                    .white,
-                                borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                            15),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(15),
                               ),
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment
-                                        .start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     "$phase Phase",
-                                    style:
-                                        const TextStyle(
-                                      fontWeight:
-                                          FontWeight
-                                              .bold,
-                                      color: Colors
-                                          .pink,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.pink,
                                     ),
                                   ),
-                                  const SizedBox(
-                                      height:
-                                          6),
+                                  const SizedBox(height: 8),
                                   Text(
                                     insight,
-                                    style:
-                                        const TextStyle(
-                                      fontSize:
-                                          13,
-                                      color: Colors
-                                          .black87,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.black87,
                                     ),
                                   ),
                                 ],
                               ),
-                            )
+                            ),
                           ],
                         ),
                       ),

@@ -15,11 +15,8 @@ class HomeCycleController {
   Future<void> loadData() async {
     isPeriod = await _cycleService.getPeriodStatus();
     periodEnd = await _cycleService.getPeriodEnd();
+    periodStart = await _cycleService.getPeriodStart();
     periodLength = await _cycleService.getPeriodLength();
-
-    if (periodEnd != null) {
-      periodStart = periodEnd!.subtract(Duration(days: periodLength - 1));
-    }
   }
 
   // ===============================
@@ -29,9 +26,11 @@ class HomeCycleController {
     isPeriod = value;
 
     if (value) {
-      await _cycleService.startPeriod();
+      // mark period start as today
+      await _cycleService.startPeriod(startDate: DateTime.now());
     } else {
-      await _cycleService.endPeriod();
+      // mark period end as today and compute length
+      await _cycleService.endPeriod(endDate: DateTime.now());
     }
 
     await loadData();

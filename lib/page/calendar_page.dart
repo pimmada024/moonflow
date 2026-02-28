@@ -18,13 +18,12 @@ class _CalendarPageState extends State<CalendarPage> {
   DateTime? periodEnd;
   bool isPeriodActive = false;
   int cycleLength = 28;
-
-  // ⭐ เพิ่มตัวนี้
   int periodLength = 7;
 
-  // Edit mode and selection
+  // ✅ EDIT MODE RANGE
   bool _editMode = false;
-  DateTime? _selectedDay;
+  DateTime? _editStart;
+  DateTime? _editEnd;
 
   bool _isFirstLoad = true;
 
@@ -53,7 +52,7 @@ class _CalendarPageState extends State<CalendarPage> {
     setState(() {
       periodEnd = end;
       isPeriodActive = status;
-      periodLength = length; // ⭐ โหลดค่าจริง
+      periodLength = length;
     });
 
     await _checkAutoStop();
@@ -68,7 +67,6 @@ class _CalendarPageState extends State<CalendarPage> {
     final start = periodEnd!.subtract(Duration(days: periodLength - 1));
     final difference = DateTime.now().difference(start).inDays;
 
-    // ⭐ ใช้ periodLength แทน fix 7
     if (difference >= periodLength) {
       _showAutoStopDialog();
     }
@@ -86,7 +84,6 @@ class _CalendarPageState extends State<CalendarPage> {
           actions: [
             TextButton(
               onPressed: () async {
-                // User confirms it ended. Keep stored periodEnd as-is
                 await _cycleService.endPeriod(endDate: periodEnd);
                 await _cycleService.setAutoStopHandled(true);
                 if (mounted) {
@@ -98,7 +95,6 @@ class _CalendarPageState extends State<CalendarPage> {
             ),
             TextButton(
               onPressed: () {
-                // Still ongoing: extend periodEnd to today
                 () async {
                   await _cycleService.startPeriod(startDate: DateTime.now());
                   await _cycleService.setAutoStopHandled(true);
@@ -122,7 +118,7 @@ class _CalendarPageState extends State<CalendarPage> {
       periodEnd: periodEnd,
       isPeriodActive: isPeriodActive,
       cycleLength: cycleLength,
-      periodLength: periodLength, // ⭐ ส่งเข้า calculator
+      periodLength: periodLength,
     );
 
     return Scaffold(
@@ -146,13 +142,17 @@ class _CalendarPageState extends State<CalendarPage> {
                     _editMode = true;
                   });
                 } else {
-                  if (_selectedDay != null) {
-                    await _cycleService.startPeriod(startDate: _selectedDay);
+                  // ✅ SAVE RANGE
+                  if (_editStart != null && _editEnd != null) {
+                    await _cycleService.startPeriod(startDate: _editStart);
+                    await _cycleService.endPeriod(endDate: _editEnd);
                     await _loadCycleData();
                   }
+
                   setState(() {
                     _editMode = false;
-                    _selectedDay = null;
+                    _editStart = null;
+                    _editEnd = null;
                   });
                 }
               },
@@ -187,8 +187,7 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  Widget _buildMonth(
-      int year, int month, CycleCalculator calculator) {
+  Widget _buildMonth(int year, int month, CycleCalculator calculator) {
     final daysInMonth = DateUtils.getDaysInMonth(year, month);
     final monthName = "${_monthNames[month - 1]} $year";
 
@@ -226,7 +225,17 @@ class _CalendarPageState extends State<CalendarPage> {
                   onTap: () {
                     if (_editMode) {
                       setState(() {
-                        _selectedDay = day;
+                        if (_editStart == null || _editEnd != null) {
+                          _editStart = day;
+                          _editEnd = null;
+                        } else {
+                          if (day.isBefore(_editStart!)) {
+                            _editEnd = _editStart;
+                            _editStart = day;
+                          } else {
+                            _editEnd = day;
+                          }
+                        }
                       });
                     }
                   },
@@ -240,8 +249,7 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  Widget _buildDay(
-      DateTime day, CycleCalculator calculator) {
+  Widget _buildDay(DateTime day, CycleCalculator calculator) {
     final isToday =
         DateUtils.isSameDay(day, DateTime.now());
     final isPeriod =
@@ -249,7 +257,18 @@ class _CalendarPageState extends State<CalendarPage> {
     final isPredicted =
         calculator.isPredictedNextPeriod(day);
 
-    final isSelected = _selectedDay != null && DateUtils.isSameDay(day, _selectedDay!);
+    // ✅ RANGE SELECTION
+    bool isSelected = false;
+
+    if (_editStart != null) {
+      if (_editEnd == null) {
+        isSelected = DateUtils.isSameDay(day, _editStart!);
+      } else {
+        isSelected =
+            !day.isBefore(_editStart!) &&
+            !day.isAfter(_editEnd!);
+      }
+    }
 
     Color? bgColor;
     Color textColor = Colors.black;
@@ -303,17 +322,7 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   final List<String> _monthNames = const [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December"
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December"
   ];
 }
